@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RDS MySQL instance in private subnets'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: three-tier-app
+  DBMasterUsername:
+    Type: String
+    Default: admin
+    NoEcho: true
+  DBMasterPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: 'Database admin password (min 8 characters)'
+
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private subnets for RDS
+      SubnetIds:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-private-subnet-1
+        - Fn::ImportValue: !Sub ${EnvironmentName}-private-subnet-2
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-db-subnet-group
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub ${EnvironmentName}-db
+      Engine: mysql
+      EngineVersion: '8.0'
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterPassword
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-rds-sg
+      MultiAZ: false  # Set to true for production (not free tier)
+      PubliclyAccessible: false
+      StorageEncrypted: true
+      DeletionPolicy: Delete  # For this project; use Snapshot in production
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-db
+
+Outputs:
+  DBEndpoint:
+    Description: RDS Endpoint
+    Value: !GetAtt Database.Endpoint.Address
+    Export:
+      Name: !Sub ${EnvironmentName}-db-endpoint
+
+  DBPort:
+    Description: RDS Port
+    Value: !GetAtt Database.Endpoint.Port
+    Export:
+      Name: !Sub ${EnvironmentName}-db-port
