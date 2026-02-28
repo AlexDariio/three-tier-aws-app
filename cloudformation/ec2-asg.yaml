@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EC2 Auto Scaling Group for application tier'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: three-tier-app
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: 'EC2 Key Pair for SSH access'
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  DBEndpoint:
+    Type: String
+    Description: 'RDS database endpoint'
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+Resources:
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${EnvironmentName}-lt
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: t2.micro
+        KeyName: !Ref KeyPairName
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        SecurityGroupIds:
+          - Fn::ImportValue: !Sub ${EnvironmentName}-ec2-sg
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            dnf update -y
+            dnf install -y nodejs npm
+            
+            mkdir -p /home/ec2-user/app
+            cd /home/ec2-user/app
+            
+            cat > .env << ENVEOF
+            DB_HOST=${DBEndpoint}
+            DB_USER=admin
+            DB_PASSWORD=${DBPassword}
+            DB_NAME=three_tier_app
+            PORT=3000
+            ENVEOF
+            
+            cat > package.json << 'PKGEOF'
+            {
+              "name": "three-tier-api",
+              "version": "1.0.0",
+              "main": "server.js",
+              "dependencies": {
+                "express": "^4.18.2",
+                "mysql2": "^3.6.0",
+                "dotenv": "^16.3.1"
+              }
+            }
+            PKGEOF
+            
+            cat > server.js << 'SERVEREOF'
+            const express = require('express');
+            const mysql = require('mysql2/promise');
+            require('dotenv').config();
+            const app = express();
+            app.use(express.json());
+            app.use((req, res, next) => {
+              res.header('Access-Control-Allow-Origin', '*');
+              res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+              res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+              next();
+            });
+            const pool = mysql.createPool({
+              host: process.env.DB_HOST,
+              user: process.env.DB_USER,
+              password: process.env.DB_PASSWORD,
+              database: process.env.DB_NAME,
+              waitForConnections: true,
+              connectionLimit: 10,
+            });
+            app.get('/health', async (req, res) => {
+              try { await pool.query('SELECT 1'); res.status(200).json({status:'healthy'}); }
+              catch(e) { res.status(500).json({status:'unhealthy'}); }
+            });
+            app.get('/api/items', async (req, res) => {
+              try { const [rows] = await pool.query('SELECT * FROM items ORDER BY created_at DESC'); res.json(rows); }
+              catch(e) { res.status(500).json({error: e.message}); }
+            });
+            app.post('/api/items', async (req, res) => {
+              try { const {name, description} = req.body; const [r] = await pool.query('INSERT INTO items (name,description) VALUES (?,?)', [name,description]); res.status(201).json({id:r.insertId,name,description}); }
+              catch(e) { res.status(500).json({error: e.message}); }
+            });
+            app.delete('/api/items/:id', async (req, res) => {
+              try { await pool.query('DELETE FROM items WHERE id=?', [req.params.id]); res.json({message:'deleted'}); }
+              catch(e) { res.status(500).json({error: e.message}); }
+            });
+            app.get('/api/info', (req, res) => { res.json({instance: process.env.HOSTNAME, timestamp: new Date().toISOString()}); });
+            app.listen(3000, () => console.log('Server on 3000'));
+            SERVEREOF
+            
+            npm install
+            npm install -g pm2
+            
+            chown -R ec2-user:ec2-user /home/ec2-user/app
+            
+            pm2 start server.js
+            pm2 startup
+            pm2 save
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${EnvironmentName}-asg
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 2
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-public-subnet-1
+        - Fn::ImportValue: !Sub ${EnvironmentName}-public-subnet-2
+      TargetGroupARNs:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-tg-arn
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-ec2
+          PropagateAtLaunch: true
+
+  ScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 70

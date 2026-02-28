@@ -29,6 +29,7 @@ Resources:
 
   Database:
     Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete  # For this project; use Snapshot in production
     Properties:
       DBInstanceIdentifier: !Sub ${EnvironmentName}-db
       Engine: mysql
@@ -43,7 +44,7 @@ Resources:
       MultiAZ: false  # Set to true for production (not free tier)
       PubliclyAccessible: false
       StorageEncrypted: true
-      DeletionPolicy: Delete  # For this project; use Snapshot in production
+      
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-db
