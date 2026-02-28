@@ -1,4 +1,5 @@
-const API_BASE = 'three-tier-app-alb-121457830.us-east-1.elb.amazonaws.comcd';
+const API_BASE = '';
+
 
 async function fetchItems() {
   try {
