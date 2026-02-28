@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three-Tier AWS App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Three-Tier AWS Application</h1>
+    <p class="subtitle">S3 + CloudFront → ALB → EC2 (Node.js) → RDS MySQL</p>
+
+    <div class="add-form">
+      <h2>Add Item</h2>
+      <input type="text" id="itemName" placeholder="Item name">
+      <input type="text" id="itemDesc" placeholder="Description">
+      <button onclick="addItem()">Add</button>
+    </div>
+
+    <div class="items-list">
+      <h2>Items</h2>
+      <div id="items">Loading...</div>
+    </div>
+
+    <div class="server-info">
+      <h2>Server Info</h2>
+      <div id="serverInfo">Fetching...</div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
