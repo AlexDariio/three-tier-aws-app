@@ -124,6 +124,20 @@ Resources:
             npm install -g pm2
             
             chown -R ec2-user:ec2-user /home/ec2-user/app
+            # Create database and table if they don't exist
+            node -e "
+            const mysql = require('mysql2');
+            const c = mysql.createConnection({host:'${DBEndpoint}',user:'admin',password:'${DBPassword}'});
+            c.query('CREATE DATABASE IF NOT EXISTS three_tier_app', (err) => {
+              if(err) { console.log('DB error:', err.message); process.exit(1); }
+              c.query('USE three_tier_app', () => {
+                c.query('CREATE TABLE IF NOT EXISTS items (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)', (err) => {
+                  if(err) console.log('Table error:', err.message);
+                  else console.log('Database and table ready!');
+                  process.exit();
+                });
+              });
+            });"
             
             pm2 start server.js
             pm2 startup
