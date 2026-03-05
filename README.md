@@ -1,9 +1,21 @@
 # AWS Three-Tier Web Application with CloudFormation
 
 ## Description
-This project is a step-by-step guide to building and deploying a three-tier web application on AWS using CloudFormation (Infrastructure as Code). Instead of manually clicking through the AWS Console, the entire infrastructure — networking, security, compute, database, and content delivery — are written in code on CloudFormation templates and deployed through the command line. The app is a simple item manager with a frontend, a backend API , and a database. The goal is to demonstrate how to build production-style architecture with a secure, scalable, and fully automated setup like you would in a real production environment.
+This repository is a step-by-step guide to building and deploying a three-tier web application on AWS using CloudFormation (Infrastructure as Code). Instead of manually clicking through the AWS Console, the entire infrastructure — networking, security, compute, database, and content delivery — are written in code on CloudFormation templates and deployed through the command line. The application is deployed across two Availability Zones for high availability, meaning if one data center goes down, the app continues running from the other. The app is a simple item manager with a frontend, a backend API, and a database. The goal is to demonstrate how to build production-style architecture with a secure, scalable, and fully automated setup like you would in a real production environment.
+
 ## Audience
-This project is intended for anyone looking to learn AWS hands-on — whether you're pursuing a career in cloud computing, solutions architecture, or cloud security, or simply want to understand how real-world cloud infrastructure works. The assumption is that you have basic familiarity with AWS services like VPC, EC2, RDS, S3, CloudFront, and the AWS CLI. Step-by-step deployment instructions are provided so you can follow along even if you're still learning.
+This Repository is intended for anyone looking to learn AWS hands-on — whether you're pursuing a career in cloud computing, solutions architecture, or cloud security, or simply want to understand how real-world cloud infrastructure works. The assumption is that you have basic familiarity with AWS services like VPC, EC2, RDS, S3, CloudFront, and the AWS CLI. Step-by-step deployment instructions are provided so you can follow along even if you're still learning.
+
+## Customization
+
+This Repo uses a simple item manager as an example, but the architecture can be changed to fit many different applications. The three-tier design works no matter what the app is used for. You can customize the frontend, backend, and database to match your own idea, such as a portfolio tracker, task manager, or inventory system.
+
+To customize:
+- **Frontend** (`frontend/index.html`, `style.css`, `script.js`) — change the layout, form fields, and design to match your application
+- **Backend** (`app/server.js`) — update the API routes and database queries to handle your own data
+- **Database** (`cloudformation/ec2-asg.yaml` UserData section) — modify the table schema to store the fields you need
+
+The CloudFormation templates and infrastructure remain the same — only the application code changes.
 
 ## Architecture Overview
 
@@ -23,7 +35,7 @@ This project is intended for anyone looking to learn AWS hands-on — whether yo
 
 ## Prerequisites
 
-> ⚠️ The installation commands in this project are designed for **macOS** . If you're using Windows or Linux, you'll need to modify the installation steps to match your operating system.
+> ⚠️ The installation commands in this Guide are designed for **macOS** . If you're using Windows or Linux, you'll need to modify the installation steps to match your operating system.
 
 
 ### Homebrew (Mac only — required for the installs below)
@@ -74,7 +86,7 @@ npm --version
 - Sign up at [https://github.com](https://github.com) if you don't have one
 
 ### Budget Awareness
-> ⚠️ Most resources in this project fall under the **AWS Free Tier**, but RDS and ALB may result in small charges if left running. Always run the cleanup commands when you're done to avoid unexpected costs.
+> ⚠️ Most resources in this Repository fall under the **AWS Free Tier**, but RDS and ALB may result in small charges if left running. Always run the cleanup commands when you're done to avoid unexpected costs.
 
 
 ## Setup
@@ -84,7 +96,7 @@ npm --version
 - This will be your **root account** (the main admin account)
 
 ### 2. Create an IAM User
-Don't use your root account for daily work — create a separate user for this Project:
+Don't use your root account for daily work — create a separate user for this Repository:
 
 1. Log into the [AWS Console](https://console.aws.amazon.com) with your root account
 2. Search for and click **IAM**
@@ -154,13 +166,13 @@ If you get an access denied error, go back to Step 2 and verify your user has **
 
 ### Step 1: Clone the Repository
 ```bash
-# Navigate to the directory where you want this project to be saved
+# Navigate to the directory where you want this repository to be saved
 cd your/preferred/folder
 
-# Download the project to your computer
+# Download the repository to your computer
 git clone https://github.com/AlexDariio/three-tier-aws-app.git
 
-# Move into the project folder
+# Move into the repository folder
 cd three-tier-aws-app
 ```
 
@@ -346,7 +358,10 @@ If you see your application running
 
 You have successfully deployed a fully automated three-tier web application on AWS! Your infrastructure includes a VPC with public and private subnets, an Application Load Balancer distributing traffic across auto-scaling EC2 instances, an RDS MySQL database secured in private subnets, and a static frontend delivered globally through CloudFront — all deployed through CloudFormation with zero manual console clicks.
 
-> **Remember:** Don't forget to run the [Clean Up](#clean-up) steps when you're done to avoid unexpected AWS charges.
+## Reminder
+This Repository deploys a simple item manager to demonstrate the architecture. The main focus is the AWS infrastructure rather than the application itself. The frontend, backend, and database can all be customized, so you can modify the code to build your own application on top of this setup. See the [Customization](#customization) section at the end for details.
+
+> ⚠️ **Remember:** Don't forget to run the [Clean Up](#clean-up) steps when you're done to avoid unexpected AWS charges.
 
 ## Clean Up
 
@@ -430,3 +445,21 @@ aws cloudformation list-stacks \
   --query 'StackSummaries[*].StackName' --output table
 ```
 None of the `three-tier` stacks should appear in this list. If the table is empty, everything has been successfully cleaned up.
+
+### Step 9: Remove AWS Credentials (Optional)
+
+If you're done working with AWS and want to remove your credentials from your computer Run:
+```bash
+rm ~/.aws/credentials
+```
+
+To verify your credentials were removed:
+```bash
+aws sts get-caller-identity
+```
+
+If it returns an error like `Unable to locate credentials`, your credentials have been successfully removed.
+
+This removes your access keys from your machine. Next time you need to use AWS, just run `aws configure` again to set them up.
+
+⚠️ **Important:** This does not delete your AWS account or IAM user — it only removes the credentials stored on your local machine.
