@@ -19,7 +19,7 @@ The CloudFormation templates and infrastructure remain the same — only the app
 
 ## Architecture Overview
 
-![Architecture Diagram](architecture.png)
+![Architecture Diagram](demos/three-tier-architecture.png)
 
 ## CloudFormation Stacks
 
